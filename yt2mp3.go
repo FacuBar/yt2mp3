@@ -1,43 +1,57 @@
 package yt2mp3
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 
-	// "github.com/bogem/id3v2"
-
+	"github.com/bogem/id3v2"
 	"github.com/kkdai/youtube/v2"
 )
 
-func DownloadSingle(url string) {
+func DownloadSingle(url string, tags *id3tags) error {
+	home, _ := os.UserHomeDir()
+	os.Chdir(filepath.Join(home, "Music"))
+
 	client := youtube.Client{}
 
 	video, err := client.GetVideo(url)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	formats := video.Formats.WithAudioChannels()
 	stream, _, err := client.GetStream(video, &formats[0])
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	videoFileName := fmt.Sprintf("%v.mp4", video.Title)
-	mp3FileName := fmt.Sprintf("%v.mp3", videoFileName)
+	mp3FileName := fmt.Sprintf("%v.mp3", video.Title)
 	file, err := os.Create(videoFileName)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer file.Close()
 
+	fmt.Println("Donwloading", video.Title)
 	if _, err = io.Copy(file, stream); err != nil {
-		panic(err)
+		return err
 	}
 
+	fmt.Println("Converting to mp3")
 	Convert(videoFileName, mp3FileName)
+
+	if tags != nil {
+		fmt.Println("Adding tags")
+		addTags(mp3FileName, tags)
+	}
+
+	return nil
 }
 
 func Convert(videFileName, mp3FileName string) {
@@ -48,35 +62,57 @@ func Convert(videFileName, mp3FileName string) {
 	os.Remove(videFileName)
 }
 
-// func addCoverArt(url string, file string) error {
-// 	client := http.Client{}
+func addTags(fileName string, tags *id3tags) error {
+	tag, err := id3v2.Open(fileName, id3v2.Options{Parse: false})
+	if err != nil || tag == nil {
+		return errors.New(err.Error())
+	}
+	defer tag.Close()
 
-// 	resp, err := client.Get(url)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer resp.Body.Close()
+	switch {
+	case tags.CoverArt != "":
+		client := http.Client{}
 
-// 	artwork, err := io.ReadAll(resp.Body)
-// 	if err != nil {
-// 		return err
-// 	}
+		resp, err := client.Get(tags.CoverArt)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
 
-// 	tag, err := id3v2.Open(file, id3v2.Options{Parse: false})
-// 	if err != nil || tag == nil {
-// 		return errors.New(err.Error())
-// 	}
-// 	defer tag.Close()
+		artwork, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
 
-// 	tag.AddAttachedPicture(id3v2.PictureFrame{
-// 		Encoding:    tag.DefaultEncoding(),
-// 		MimeType:    "image/jpeg",
-// 		PictureType: id3v2.PTFrontCover,
-// 		Description: "Front cover",
-// 		Picture:     artwork,
-// 	})
+		tag.AddAttachedPicture(id3v2.PictureFrame{
+			Encoding:    tag.DefaultEncoding(),
+			MimeType:    "image/jpeg",
+			PictureType: id3v2.PTFrontCover,
+			Description: "Front cover",
+			Picture:     artwork,
+		})
+		fallthrough
 
-// 	tag.Save()
+	case tags.Album != "":
+		tag.SetAlbum(tags.Album)
+		fallthrough
 
-// 	return nil
-// }
+	case tags.Artist != "":
+		tag.SetArtist(tags.Artist)
+		fallthrough
+
+	case tags.Title != "":
+		tag.SetTitle(tags.Title)
+	}
+
+	tag.Save()
+
+	return nil
+}
+
+type id3tags struct {
+	CoverArt string `json:"cover_art"`
+	Artist   string `json:"artist"`
+	Title    string `json:"title"`
+	Album    string `json:"album"`
+}

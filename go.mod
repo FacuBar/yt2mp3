@@ -1,4 +1,4 @@
-module github.com/FacuBar/ytmp3
+module github.com/FacuBar/yt2mp3
 
 go 1.17
 
