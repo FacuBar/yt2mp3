@@ -7,12 +7,13 @@ ID3 tags -Cover Art, Artist ...-
 
 At the moment being only linux is supported
 
-- Instal ffmpeg - `sudo apt install ffmpeg`
+- Instal ffmpeg `sudo apt install ffmpeg`
 
-Build with `go build -o yt2mp3 cmd/main.go`
-Start server with `./yt2mp3`
+- Build with `go build -o yt2mp3 cmd/main.go`
 
-Send post request to `localhost:{port}/donwload` json payload that follows the signature:
+- Start server with `./yt2mp3`
+
+Send post request to `localhost:{port}/donwload` with json payload that follows the signature:
 
 ```json
 {
