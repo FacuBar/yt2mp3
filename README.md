@@ -6,8 +6,11 @@ ID3 tags -Cover Art, Artist ...-
 # Instructions
 
 At the moment being only linux is supported
-
 - Instal ffmpeg `sudo apt install ffmpeg`
+
+- Clone repo `git clone github.com/FacuBar/yt2mp3 & cd yt2mp3`
+
+- Install depencies `go get .`
 
 - Build with `go build -o yt2mp3 cmd/main.go`
 
