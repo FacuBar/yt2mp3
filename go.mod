@@ -3,7 +3,7 @@ module github.com/FacuBar/yt2mp3
 go 1.17
 
 require (
-	github.com/bogem/id3v2 v1.2.0
+	// github.com/bogem/id3v2 v1.2.0
 	github.com/kkdai/youtube/v2 v2.7.5
 )
 

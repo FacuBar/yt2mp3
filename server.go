@@ -25,6 +25,7 @@ func (s *Server) handler() {
 	mux := http.NewServeMux()
 
 	mux.Handle("/download", downloadSingleHandler())
+	mux.Handle("/downloadPlaylist", downloadPlayList())
 	mux.Handle("/", notFound())
 
 	s.srv.Handler = mux
@@ -46,8 +47,7 @@ func (s *Server) Start() {
 
 func downloadSingleHandler() http.HandlerFunc {
 	type request struct {
-		YTURL string   `json:"yt_url"`
-		Id3   *id3tags `json:"id3"`
+		YTURL string `json:"yt_url"`
 	}
 
 	return func(rw http.ResponseWriter, r *http.Request) {
@@ -65,7 +65,7 @@ func downloadSingleHandler() http.HandlerFunc {
 		r.Body.Close()
 
 		json.Unmarshal(data, &req)
-		if err = DownloadSingle(req.YTURL, req.Id3); err != nil {
+		if err = DownloadSingle(req.YTURL); err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
 			rw.Write([]byte(fmt.Sprintf(`{"error": %v}`, err)))
 			return
@@ -74,6 +74,14 @@ func downloadSingleHandler() http.HandlerFunc {
 		rw.WriteHeader(http.StatusCreated)
 		rw.Write([]byte("file donwloaded successfully"))
 	}
+}
+
+func downloadPlayList() http.HandlerFunc {
+
+	return func(rw http.ResponseWriter, r *http.Request) {
+
+	}
+
 }
 
 func notFound() http.HandlerFunc {
