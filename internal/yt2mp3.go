@@ -1,18 +1,19 @@
-package yt2mp3
+package internal
 
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 
 	"github.com/kkdai/youtube/v2"
 )
 
 var (
-	yt = youtube.Client{}
+	yt = youtube.Client{Debug: false}
+	wg sync.WaitGroup
 )
 
 type result struct {
@@ -46,7 +47,7 @@ func downloader(videos <-chan *youtube.Video, downloaded chan<- result) {
 			continue
 		}
 
-		log.Println("Downloading", video.Title)
+		fmt.Println("Downloading", video.Title)
 		if _, err = io.Copy(file, stream); err != nil {
 			file.Close()
 			downloaded <- result{
@@ -60,7 +61,7 @@ func downloader(videos <-chan *youtube.Video, downloaded chan<- result) {
 			Error:    nil,
 		}
 		file.Close()
-		log.Println("Downloaded", video.Title)
+		fmt.Println("Downloaded", video.Title)
 	}
 }
 
@@ -70,7 +71,7 @@ func converter(downloaded <-chan result, converted chan<- result) {
 			converted <- file
 		}
 
-		log.Println("Converting", file.Response.Video)
+		fmt.Println("Converting", file.Response.Video)
 		convert := exec.Command("ffmpeg", "-i", file.Response.Video, file.Response.Audio)
 		if err := convert.Run(); err != nil {
 			fmt.Println(err)
@@ -80,7 +81,7 @@ func converter(downloaded <-chan result, converted chan<- result) {
 		}
 		os.Remove(file.Response.Video)
 		converted <- file
-		log.Println("Converted", file.Response.Video)
+		fmt.Println("Converted", file.Response.Video)
 	}
 }
 
@@ -88,13 +89,17 @@ func downloadAndConvert(videos []*youtube.Video) []result {
 	home, _ := os.UserHomeDir()
 	os.Chdir(filepath.Join(home, "Music"))
 
+	wg.Add(len(videos))
+
 	videosCh := make(chan *youtube.Video)
 	downloaded := make(chan result)
 	converted := make(chan result)
-	// @TODO: add waitgroup and close chanels
+
+	res := []result{}
 	go func() {
-		for {
-			<-converted
+		for temp := range converted {
+			res = append(res, temp)
+			wg.Done()
 		}
 	}()
 
@@ -105,7 +110,12 @@ func downloadAndConvert(videos []*youtube.Video) []result {
 		videosCh <- video
 	}
 
-	return nil
+	wg.Wait()
+	close(videosCh)
+	close(downloaded)
+	close(converted)
+
+	return res
 }
 
 func DownloadSingle(url string) {
@@ -113,7 +123,7 @@ func DownloadSingle(url string) {
 	if err != nil {
 		return
 	}
-	go downloadAndConvert([]*youtube.Video{video})
+	downloadAndConvert([]*youtube.Video{video})
 }
 
 func DownloadPlaylist(url string) {
@@ -128,7 +138,7 @@ func DownloadPlaylist(url string) {
 		}
 	}
 
-	go downloadAndConvert(videos)
+	downloadAndConvert(videos)
 }
 
 // func AddTags(fileName string, tags *id3tags) error {
