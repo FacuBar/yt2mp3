@@ -65,21 +65,37 @@ func downloadSingleHandler() http.HandlerFunc {
 		r.Body.Close()
 
 		json.Unmarshal(data, &req)
-		if err = DownloadSingle(req.YTURL); err != nil {
-			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte(fmt.Sprintf(`{"error": %v}`, err)))
-			return
-		}
+		DownloadSingle(req.YTURL)
 
 		rw.WriteHeader(http.StatusCreated)
-		rw.Write([]byte("file donwloaded successfully"))
+		rw.Write([]byte("processing request"))
 	}
 }
 
 func downloadPlayList() http.HandlerFunc {
+	type request struct {
+		YTURL string `json:"yt_url"`
+	}
 
 	return func(rw http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.NotFound(rw, r)
+			return
+		}
+		var req request
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte(fmt.Sprintf(`{"error": %v}`, err)))
+			return
+		}
+		r.Body.Close()
 
+		json.Unmarshal(data, &req)
+		DownloadPlaylist(req.YTURL)
+
+		rw.WriteHeader(http.StatusCreated)
+		rw.Write([]byte("processing request"))
 	}
 
 }

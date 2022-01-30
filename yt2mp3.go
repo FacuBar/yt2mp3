@@ -24,21 +24,13 @@ type response struct {
 	Audio string
 }
 
-func downloader(urls <-chan string, downloaded chan<- result) {
-	for url := range urls {
-		video, err := yt.GetVideo(url)
-		if err != nil {
-			downloaded <- result{
-				Error: fmt.Errorf("%s couldn't be fetched", url),
-			}
-			continue
-		}
-
+func downloader(videos <-chan *youtube.Video, downloaded chan<- result) {
+	for video := range videos {
 		formats := video.Formats.WithAudioChannels()
 		stream, _, err := yt.GetStream(video, &formats[0])
 		if err != nil {
 			downloaded <- result{
-				Error: fmt.Errorf("%s [%s] couldn't be downloaded", video.Title, url),
+				Error: fmt.Errorf("%s couldn't be downloaded", video.Title),
 			}
 			continue
 		}
@@ -48,7 +40,7 @@ func downloader(urls <-chan string, downloaded chan<- result) {
 		file, err := os.Create(videoFileName)
 		if err != nil {
 			downloaded <- result{
-				Error: fmt.Errorf("%s [%s] couldn't be downloaded", video.Title, url),
+				Error: fmt.Errorf("%s couldn't be downloaded", video.Title),
 			}
 			continue
 		}
@@ -57,7 +49,7 @@ func downloader(urls <-chan string, downloaded chan<- result) {
 		if _, err = io.Copy(file, stream); err != nil {
 			file.Close()
 			downloaded <- result{
-				Error: fmt.Errorf("%s [%s] couldn't be downloaded", video.Title, url),
+				Error: fmt.Errorf("%s couldn't be downloaded", video.Title),
 			}
 			continue
 		}
@@ -84,34 +76,57 @@ func converter(downloaded <-chan result, converted chan<- result) {
 				Error: fmt.Errorf("%s couldn't be converted", file.Response.Video),
 			}
 		}
-		os.Remove(file.Response.Video)
 		converted <- file
+		os.Remove(file.Response.Video)
 	}
 }
 
-func downloadAndConvert(urls []string) []result {
+func downloadAndConvert(videos []*youtube.Video) []result {
 	home, _ := os.UserHomeDir()
 	os.Chdir(filepath.Join(home, "Music"))
 
-	urlsCh := make(chan string)
+	videosCh := make(chan *youtube.Video)
 	downloaded := make(chan result)
 	converted := make(chan result)
+	go func() {
+		for {
+			<-converted
+		}
+	}()
 
-	go downloader(urlsCh, downloaded)
+	go downloader(videosCh, downloaded)
 	go converter(downloaded, converted)
 
-	for _, url := range urls {
-		urlsCh <- url
+	for _, video := range videos {
+		videosCh <- video
 	}
-
-	close(urlsCh)
 
 	return nil
 }
 
-func DownloadSingle(url string) error {
-	downloadAndConvert([]string{url})
-	return nil
+func DownloadSingle(url string) {
+	video, err := yt.GetVideo(url)
+	if err != nil {
+		return
+	}
+	go downloadAndConvert([]*youtube.Video{video})
+}
+
+func DownloadPlaylist(url string) {
+	fmt.Println(url)
+	playlist, _ := yt.GetPlaylist(url)
+	fmt.Printf("%#v", playlist)
+
+	videos := []*youtube.Video{}
+
+	for _, video := range playlist.Videos {
+		vid, err := yt.VideoFromPlaylistEntry(video)
+		if err == nil {
+			videos = append(videos, vid)
+		}
+	}
+
+	go downloadAndConvert(videos)
 }
 
 // func AddTags(fileName string, tags *id3tags) error {
