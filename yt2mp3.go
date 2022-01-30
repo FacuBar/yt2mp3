@@ -3,6 +3,7 @@ package yt2mp3
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -45,7 +46,7 @@ func downloader(videos <-chan *youtube.Video, downloaded chan<- result) {
 			continue
 		}
 
-		fmt.Println("Donwloading", video.Title)
+		log.Println("Downloading", video.Title)
 		if _, err = io.Copy(file, stream); err != nil {
 			file.Close()
 			downloaded <- result{
@@ -54,12 +55,12 @@ func downloader(videos <-chan *youtube.Video, downloaded chan<- result) {
 			continue
 		}
 
-		fmt.Println("Converting to mp3")
 		downloaded <- result{
 			Response: response{Video: videoFileName, Audio: mp3FileName},
 			Error:    nil,
 		}
 		file.Close()
+		log.Println("Downloaded", video.Title)
 	}
 }
 
@@ -69,6 +70,7 @@ func converter(downloaded <-chan result, converted chan<- result) {
 			converted <- file
 		}
 
+		log.Println("Converting", file.Response.Video)
 		convert := exec.Command("ffmpeg", "-i", file.Response.Video, file.Response.Audio)
 		if err := convert.Run(); err != nil {
 			fmt.Println(err)
@@ -76,8 +78,9 @@ func converter(downloaded <-chan result, converted chan<- result) {
 				Error: fmt.Errorf("%s couldn't be converted", file.Response.Video),
 			}
 		}
-		converted <- file
 		os.Remove(file.Response.Video)
+		converted <- file
+		log.Println("Converted", file.Response.Video)
 	}
 }
 
@@ -88,6 +91,7 @@ func downloadAndConvert(videos []*youtube.Video) []result {
 	videosCh := make(chan *youtube.Video)
 	downloaded := make(chan result)
 	converted := make(chan result)
+	// @TODO: add waitgroup and close chanels
 	go func() {
 		for {
 			<-converted
@@ -113,9 +117,7 @@ func DownloadSingle(url string) {
 }
 
 func DownloadPlaylist(url string) {
-	fmt.Println(url)
 	playlist, _ := yt.GetPlaylist(url)
-	fmt.Printf("%#v", playlist)
 
 	videos := []*youtube.Video{}
 
