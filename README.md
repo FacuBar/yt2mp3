@@ -15,8 +15,8 @@ or
 - `go install`
 
 ###### commands
-- yt2mp3 single [url] downloads a single video and converts it to mp3
-- yt2mp3 playlist [url] downloads all videos from a playlist and converts each one to mp3
+- `yt2mp3 single [url]` downloads a single video and converts it to mp3
+- `yt2mp3 playlist [url]` downloads all videos from a playlist and converts each one to mp3
 
 ### TODO
 - [x] Download playlists
