@@ -23,7 +23,4 @@ or
 - [x] Download and convert files in a concurrent manner when possible
 - [x] CLI
 - [ ] Add interactive and selective id3 tags insertion
-- [ ] Test performance hit on paralel execution (download and convert more than one file at a time -for now you can download 1 file while converting another-)
 - [ ] Download metadata and complete id3 tags automatically (only if I find external API of my liking)
-
-- [ ] Implement an overthought version using GO as server, cli client on JS|Py and RabbitMQ to comunicate them
